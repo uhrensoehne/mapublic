@@ -1,0 +1,320 @@
+/* Font-Face und Reset */
+@font-face { 
+    font-family: 'Broadway'; 
+    src: "fonts\BROADW.TTF" format('truetype'); 
+}
+
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+}
+
+html, body { 
+    width: 100%; 
+    height: 100%;
+    background: #ffffff; /* Weißer Hintergrund */
+    user-select: none; 
+    overflow-x: hidden; /* Nur horizontales Scrollen deaktivieren */
+    overflow-y: auto; /* Vertikales Scrollen erlauben */
+    font-family: 'Courier New', serif;
+}
+
+html {
+    padding-top: 60px; /* Platz für den fixierten Header */
+}
+
+/* Custom Scrollbar */
+html::-webkit-scrollbar {
+    width: 12px;
+}
+
+html::-webkit-scrollbar-track {
+    background: rgba(250,249,246,0.9);
+    border-left: 1px solid rgba(0,0,0,0.1);
+}
+
+html::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #dd9f3a 0%, #c8892e 100%);
+    border-radius: 6px;
+    border: 2px solid rgba(250,249,246,0.9);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #f0b04b 0%, #dd9f3a 100%);
+}
+
+/* App Container und Header */
+#app-container {
+    display: flex;
+    width: 100vw;
+    min-height: 200vh; /* Mindestens doppelte Bildschirmhöhe für Scroll-Effekt */
+    background: linear-gradient(to bottom, 
+        #f5f5f7 0%, 
+        #e8e8ea 25%, 
+        #faf9f6 50%, 
+        #f5f3f0 75%, 
+        #f5f3f0 100%); /* Nahtloser Übergang zur Sidebar-Farbe */
+    position: relative;
+    /* Kompensation für body padding-top */
+    margin-top: -60px;
+    padding-top: 60px;
+}
+
+.app-header {
+    position: fixed; /* Von absolute zu fixed geändert */
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: linear-gradient(180deg, #faf9f6 0%, #f2f1ee 100%);
+    background-size: 120% 400%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.05);
+}
+
+.header-cart {
+    display: flex;
+    align-items: center;
+}
+
+.cart-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #dd9f3a;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    color: #1d1d1f;
+    text-decoration: none;
+    font-family: 'Courier New', serif;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+.cart-button:hover {
+    background: #f0b04b;
+    border-color: rgba(0,0,0,0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.cart-icon {
+    font-size: 18px;
+}
+
+.cart-count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%);
+    color: white;
+    border-radius: 10px;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,122,255,0.4);
+    border: 2px solid #faf9f6;
+}
+
+.cart-count.hidden {
+    display: none;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.header-logo {
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+    z-index: 1001;
+}
+
+.header-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header .app-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d1d1f;
+    letter-spacing: -0.5px;
+    margin: 0;
+}
+
+.app-header .app-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    color: #424245;
+    line-height: 1.4;
+    margin-top: 4px;
+}
+
+/* Loading Overlay (globale Komponente) */
+.overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%; 
+    z-index: 999; 
+}
+
+#loading-overlay {
+    position: absolute;
+    background: rgba(250,249,246,0.9);
+    backdrop-filter: blur(20px);
+    z-index: 999;
+    display: none;
+    justify-content: center;
+    align-items: center;
+}
+
+#loading-container { 
+    background: rgba(250,249,246,0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 20px; 
+    padding: 32px; 
+    text-align: center;
+    font-family: 'Courier New', serif;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    min-width: 280px;
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(0,0,0,0.1);
+    border-top: 3px solid #007AFF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+#loading-container h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 16px;
+    letter-spacing: -0.3px;
+}
+
+#loading-container p {
+    font-size: 14px;
+    color: #424245;
+    font-weight: 400;
+}
+
+#loading-bar-container { 
+    width: 100%; 
+    height: 4px; 
+    background: rgba(0,0,0,0.1); 
+    border-radius: 2px; 
+    margin: 16px 0; 
+    overflow: hidden;
+}
+
+#loading-bar { 
+    height: 100%; 
+    background: linear-gradient(90deg, #007AFF, #0056CC); 
+    border-radius: 2px; 
+    width: 0%; 
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+
+/* Animations */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Media Queries (nur die globalen Teile) */
+@media (max-width: 1200px) {
+    .disclaimer-icon {
+        font-size: 36px;
+    }
+
+    .disclaimer-title {
+        font-size: 18px;
+    }
+
+    .disclaimer-text {
+        font-size: 12px;
+        line-height: 1;
+        margin-bottom: 18px;
+    }
+
+    .disclaimer-btn {
+        width: 100%;
+        height: 35px;
+        font-size: 12px;
+    }
+}
+
+.mapclock-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    margin-right: 10px;
+    color: #1d1d1f;
+    text-decoration: none;
+    font-family: 'Courier New', serif;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.mapclock-button:hover {
+    transform: translateY(-3px);
+}
+
+.button-separator {
+    width: 1px;
+    height: 24px;
+    background: rgba(0,0,0,0.2);
+    margin: 0 12px;
+}
