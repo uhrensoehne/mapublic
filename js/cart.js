@@ -1,121 +1,144 @@
-// Sammle aktuelle Icon-Daten
-function collectCurrentIconData() {
+// cart-data-manager.js - Vollständig integrierte Version
+
+// 1. Konfiguration
+const WOOCOMMERCE_PRODUCT_ID = 421;
+const WOOCOMMERCE_CART_URL = 'https://uhrensoehne.shop/?add-to-cart=';
+const COOKIE_NAME = 'clock_config';
+const COOKIE_EXPIRE_DAYS = 30;
+
+// 2. Hilfsfunktionen
+function getSafeMapData() {
     try {
-        const container = document.getElementById('scaled-container');
-        if (!container) return [];
-        
+        return {
+            center: window.map?.getCenter() || { lng: 0, lat: 0 },
+            zoom: window.map?.getZoom() || 10,
+            markerCount: typeof getMarkerCount === 'function' ? getMarkerCount() : 0
+        };
+    } catch (error) {
+        console.error('Kartendaten nicht verfügbar:', error);
+        return {
+            center: { lng: 0, lat: 0 },
+            zoom: 10,
+            markerCount: 0
+        };
+    }
+}
+
+function collectIconData() {
+    try {
         const icons = [];
-        const placedBoxes = container.querySelectorAll('.placed-box');
+        const boxes = document.querySelectorAll('#scaled-container .placed-box');
         
-        placedBoxes.forEach(box => {
-            const iconData = {
-                type: box.dataset.iconType,
-                size: box.dataset.iconSize,
-                left: box.style.left,
-                top: box.style.top,
+        boxes.forEach(box => {
+            icons.push({
+                type: box.dataset.iconType || 'default',
+                size: box.dataset.iconSize || 'medium',
+                left: box.style.left || '0',
+                top: box.style.top || '0',
                 transform: box.style.transform || ''
-            };
-            icons.push(iconData);
+            });
         });
-        
         return icons;
     } catch (error) {
-        console.error('Fehler beim Sammeln der Icon-Daten:', error);
+        console.error('Icon-Daten konnten nicht gesammelt werden:', error);
         return [];
     }
 }
 
-// Sicherer Zugriff auf die Karte
-function getMapCenter() {
-    try {
-        if (window.map && typeof window.map.getCenter === 'function') {
-            const center = window.map.getCenter();
-            return [center.lng, center.lat];
-        }
-    } catch (error) {
-        console.error('Fehler beim Zugriff auf Kartencenter:', error);
-    }
-    return null;
-}
-
-function getMapZoom() {
-    try {
-        if (window.map && typeof window.map.getZoom === 'function') {
-            return window.map.getZoom();
-        }
-    } catch (error) {
-        console.error('Fehler beim Zugriff auf Zoom-Level:', error);
-    }
-    return null;
-}
-
-// Generiere Konfigurationsdaten für WooCommerce
-function generateWooCommerceConfig() {
-    const searchInput = document.getElementById('search-input');
-    const currentSearchText = searchInput ? searchInput.value : '';
-    
+// NEUE FUNKTION: Prepare WooCommerce Config
+function prepareWooCommerceConfig(center, zoom, markerCount, searchText, previewImage) {
     return {
-        product_id: 421, // Ihre WooCommerce Produkt-ID
-        map_center: getMapCenter(),
-        zoom: getMapZoom(),
-        search_text: currentSearchText,
-        icons: collectCurrentIconData(),
-        timestamp: new Date().toISOString()
+        product_id: WOOCOMMERCE_PRODUCT_ID,
+        product_name: `Gridclock'd - ${searchText}`,
+        map_center: [center.lng, center.lat],
+        zoom: zoom,
+        marker_count: markerCount,
+        search_text: searchText,
+        icons: collectIconData(),
+        preview_image: previewImage,
+        timestamp: new Date().toISOString(),
+        price: 69.99
     };
 }
 
-// Hauptfunktion zum Hinzufügen zum WooCommerce-Warenkorb
-async function addToWooCommerceCart() {
-    const addToCartBtn = document.getElementById('add-to-cart-btn');
-    if (!addToCartBtn) return;
-    
-    const originalText = addToCartBtn.innerHTML;
-    addToCartBtn.innerHTML = '<span>🔄 Wird hinzugefügt...</span>';
-    addToCartBtn.disabled = true;
-    
+// NEUE FUNKTION: Set WooCommerce Cookie (ersetzt setConfigCookie)
+function setWooCommerceCookie(config) {
     try {
-        // 1. Konfiguration erstellen
-        const config = generateWooCommerceConfig();
-        
-        // 2. Screenshot erstellen (falls verfügbar)
-        let screenshotData = '';
-        try {
-            if (typeof getScreenshotAsDataURL === 'function') {
-                screenshotData = await getScreenshotAsDataURL();
-                config.screenshot = screenshotData;
-            }
-        } catch (e) {
-            console.error('Screenshot konnte nicht erstellt werden:', e);
-        }
-        
-        // 3. Daten an WooCommerce senden
         const configStr = encodeURIComponent(JSON.stringify(config));
-        document.cookie = `clock_config=${configStr}; path=/; max-age=${60*60*24*30}; SameSite=Lax`;
-        window.location.href = `https://uhrensoehne.shop/?add-to-cart=${config.product_id}`;
+        const expires = new Date();
+        expires.setDate(expires.getDate() + COOKIE_EXPIRE_DAYS);
         
+        document.cookie = `${COOKIE_NAME}=${configStr}; ` +
+                         `path=/; ` +
+                         `expires=${expires.toUTCString()}; ` +
+                         `SameSite=Lax; ` +
+                         `${location.protocol === 'https:' ? 'Secure' : ''}`;
+        return true;
     } catch (error) {
-        console.error('Fehler beim Hinzufügen zum Warenkorb:', error);
-        alert('Fehler: ' + error.message);
-    } finally {
-        addToCartBtn.innerHTML = originalText;
-        addToCartBtn.disabled = false;
+        console.error('Cookie konnte nicht gesetzt werden:', error);
+        return false;
     }
 }
 
-// Event Listener für den Warenkorb-Button
-function initCartButton() {
-    const addToCartBtn = document.getElementById('add-to-cart-btn');
-    if (addToCartBtn) {
-        addToCartBtn.addEventListener('click', function(e) {
+// 3. Hauptfunktion (angepasst mit den neuen Funktionen)
+async function addToCartWithPreview() {
+    const btn = document.getElementById('add-to-cart-btn');
+    if (!btn) return;
+
+    // Button-Status aktualisieren
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span>🔄 Wird verarbeitet...</span>';
+    btn.disabled = true;
+
+    try {
+        // Daten sammeln
+        const { center, zoom, markerCount } = getSafeMapData();
+        const searchText = document.getElementById('search-input')?.value || '';
+        
+        // Vorschaubild generieren
+        const useCached = typeof isIn3DView !== 'undefined' && isIn3DView;
+        const previewImage = await generatePreviewImage(useCached).catch(() => '');
+
+        // Konfiguration erstellen (mit neuer Funktion)
+        const config = prepareWooCommerceConfig(
+            center, 
+            zoom, 
+            markerCount, 
+            searchText, 
+            previewImage
+        );
+
+        console.log('Konfiguration:', config); // Debug-Ausgabe
+
+        // Cookie setzen und weiterleiten (mit neuer Funktion)
+        if (setWooCommerceCookie(config)) {
+            window.location.href = `${WOOCOMMERCE_CART_URL}${WOOCOMMERCE_PRODUCT_ID}`;
+        } else {
+            throw new Error('Konfiguration konnte nicht gespeichert werden');
+        }
+
+    } catch (error) {
+        console.error('Kritischer Fehler:', error);
+        alert('Fehler: ' + error.message);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// 4. Initialisierung
+function initCart() {
+    const btn = document.getElementById('add-to-cart-btn');
+    if (btn) {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
-            addToWooCommerceCart();
+            addToCartWithPreview();
         });
     }
 }
 
-// Initialisierung wenn die Karte bereit ist
-if (typeof map !== 'undefined') {
-    initCartButton();
+// 5. Start
+if (document.readyState === 'complete') {
+    initCart();
 } else {
-    document.addEventListener('maplibre-loaded', initCartButton);
+    window.addEventListener('DOMContentLoaded', initCart);
 }
