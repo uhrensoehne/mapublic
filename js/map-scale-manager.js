@@ -1,51 +1,46 @@
 class MapScaleManager {
   constructor() {
-    this.breakpoints = {
-      desktop: { width: 550, height: 550, mediaQuery: '(min-width: 1201px)' },
-      mobile: { width: 400, height: 400, mediaQuery: '(max-width: 1200px)' }
-    };
-    
     this.state = {
       current: null,
       lastWrapperSize: null,
       styles: {}
     };
-    
+
     this.init();
   }
 
   init() {
+    this.state.current = 'dynamic';
     this.calculateStyles();
     this.injectStyles();
-    this.setupEventListeners();
-    this.applyInitialStyles();
-    console.log('Map scale manager initialized');
+    this.applyStyles();
+    this.state.lastWrapperSize = { ...this.state.styles.dynamic.wrapperSize };
+    this.setupResizeListener();
+  }
+
+  getWrapperSize() {
+    const wrapper = document.getElementById('main-wrapper');
+    if (!wrapper) return { width: window.innerWidth, height: window.innerHeight };
+    const rect = wrapper.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
   }
 
   calculateStyles() {
-    Object.entries(this.breakpoints).forEach(([key, config]) => {
-      const mapSize = this.calculateMapSize(config);
-      const scale = this.calculateScale(mapSize.width);
-      
-      this.state.styles[key] = {
-        width: `${mapSize.width}%`,
-        height: `${mapSize.height}%`,
-        transform: `translate(-50%, -50%) scale(${scale.toFixed(6)})`,
-        wrapperSize: config
-      };
-    });
-  }
+    const { REFERENCE_MAP, REFERENCE_WRAPPER, AUTO_ADJUST } = MAP_SIZE_CONFIG;
+    const wrapperSize = this.getWrapperSize();
 
-  calculateMapSize(wrapperDimensions) {
-    if (!MAP_SIZE_CONFIG?.AUTO_ADJUST) return MAP_SIZE_CONFIG?.REFERENCE_MAP || { width: 100, height: 100 };
-    
-    const reference = MAP_SIZE_CONFIG.REFERENCE_WRAPPER;
-    const widthFactor = reference.width / wrapperDimensions.width;
-    const heightFactor = reference.height / wrapperDimensions.height;
-    
-    return {
-      width: MAP_SIZE_CONFIG.REFERENCE_MAP.width * widthFactor,
-      height: MAP_SIZE_CONFIG.REFERENCE_MAP.height * heightFactor
+    const widthFactor = AUTO_ADJUST ? REFERENCE_WRAPPER.width / wrapperSize.width : 1;
+    const heightFactor = AUTO_ADJUST ? REFERENCE_WRAPPER.height / wrapperSize.height : 1;
+
+    const mapWidth = REFERENCE_MAP.width * widthFactor;
+    const mapHeight = REFERENCE_MAP.height * heightFactor;
+    const scale = this.calculateScale(mapWidth);
+
+    this.state.styles.dynamic = {
+      width: `${mapWidth}%`,
+      height: `${mapHeight}%`,
+      transform: `translate(-50%, -50%) scale(${scale.toFixed(6)})`,
+      wrapperSize: { ...wrapperSize }
     };
   }
 
@@ -54,138 +49,112 @@ class MapScaleManager {
   }
 
   injectStyles() {
-    if (document.getElementById('dynamic-map-styles')) return;
-    
-    const styles = Object.entries(this.state.styles)
-      .map(([key, style]) => {
-        const mediaQuery = key === 'mobile' ? `@media ${this.breakpoints.mobile.mediaQuery}` : '';
-        return `
-          ${mediaQuery} {
-            #map {
-              width: ${style.width} !important;
-              height: ${style.height} !important;
-              transform: ${style.transform} !important;
-            }
-          }
-        `.replace(/^\s+/gm, '');
-      })
-      .join('\n');
+    const existing = document.getElementById('dynamic-map-styles');
+    if (existing) existing.remove();
 
-    const styleElement = document.createElement('style');
-    styleElement.id = 'dynamic-map-styles';
-    styleElement.textContent = styles;
-    document.head.appendChild(styleElement);
-  }
+    const style = this.state.styles.dynamic;
 
-  getCurrentBreakpoint() {
-    return window.innerWidth <= 1200 ? 'mobile' : 'desktop';
-  }
+    const styleTag = document.createElement('style');
+    styleTag.id = 'dynamic-map-styles';
+    styleTag.textContent = `
+      #map {
+        width: ${style.width} !important;
+        height: ${style.height} !important;
+        transform: ${style.transform} !important;
+      }
+    `.trim();
 
-  applyInitialStyles() {
-    const breakpoint = this.getCurrentBreakpoint();
-    this.state.current = breakpoint;
-    this.state.lastWrapperSize = this.state.styles[breakpoint].wrapperSize;
-    this.applyStyles();
+    document.head.appendChild(styleTag);
   }
 
   applyStyles() {
-    const mapElement = document.getElementById('map');
-    if (!mapElement) return console.warn('Map element not found');
-    
-    const breakpoint = this.getCurrentBreakpoint();
-    const styles = this.state.styles[breakpoint];
-    
-    Object.assign(mapElement.style, {
-      width: styles.width,
-      height: styles.height,
-      transform: styles.transform
+    const el = document.getElementById('map');
+    if (!el) return;
+    const style = this.state.styles.dynamic;
+    if (!style) return;
+
+    Object.assign(el.style, {
+      width: style.width,
+      height: style.height,
+      transform: style.transform
     });
   }
 
   rescaleIcons() {
     const icons = document.querySelectorAll('.placed-box');
-    if (!icons.length) return;
+    const current = this.state.styles.dynamic.wrapperSize;
+    const last = this.state.lastWrapperSize;
 
-    const currentSize = this.state.styles[this.state.current].wrapperSize;
-    const { lastWrapperSize } = this.state;
-    
-    if (!lastWrapperSize) return;
-    
-    const scaleX = currentSize.width / lastWrapperSize.width;
-    const scaleY = currentSize.height / lastWrapperSize.height;
-    
-    icons.forEach((icon, index) => {
-      const currentLeft = parseFloat(icon.style.left) || 0;
-      const currentTop = parseFloat(icon.style.top) || 0;
-      
-      icon.style.left = `${currentLeft * scaleX}px`;
-      icon.style.top = `${currentTop * scaleY}px`;
+    // Update `lastWrapperSize` in any case to keep reference current
+    this.state.lastWrapperSize = { ...current };
+
+    if (!icons.length || !last) return;
+
+    const scaleX = current.width / last.width;
+    const scaleY = current.height / last.height;
+
+    icons.forEach(icon => {
+      const left = parseFloat(icon.style.left) || 0;
+      const top = parseFloat(icon.style.top) || 0;
+      icon.style.left = `${left * scaleX}px`;
+      icon.style.top = `${top * scaleY}px`;
     });
-    
-    this.state.lastWrapperSize = { ...currentSize };
-    
-    // Update icon manager if available
+
     if (typeof updateDragIconsStatus === 'function') {
       updateDragIconsStatus();
     }
-    
-    console.log(`Icons rescaled with factors: ${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}`);
   }
 
   handleResize() {
-    const newBreakpoint = this.getCurrentBreakpoint();
-    const breakpointChanged = this.state.current !== newBreakpoint;
-    
-    if (breakpointChanged) {
-      console.log(`Breakpoint changed: ${this.state.current} → ${newBreakpoint}`);
-      this.state.current = newBreakpoint;
-      
-      // Apply styles and rescale icons after DOM update
+    const currentWrapperSize = this.getWrapperSize();
+    const lastWrapperSize = this.state.lastWrapperSize;
+
+    const hasChanged =
+      !lastWrapperSize ||
+      currentWrapperSize.width !== lastWrapperSize.width ||
+      currentWrapperSize.height !== lastWrapperSize.height;
+
+    if (hasChanged) {
+      this.calculateStyles();
+      this.injectStyles();
       this.applyStyles();
       setTimeout(() => this.rescaleIcons(), 0);
     }
   }
 
-  setupEventListeners() {
+  setupResizeListener() {
     window.addEventListener('resize', () => this.handleResize());
   }
 
-  // Public API
   recalculateIconPositions() {
-    console.log('Manual icon recalculation triggered');
     this.rescaleIcons();
   }
 
   getDebugInfo() {
     return {
-      currentBreakpoint: this.state.current,
       styles: this.state.styles,
       lastWrapperSize: this.state.lastWrapperSize
     };
   }
 }
 
-// Initialize and expose global functions
+// Global instance + API
 let mapScaleManager;
 
 function initializeMapScale() {
   mapScaleManager = new MapScaleManager();
 }
 
-function initializeOptimizedMapScale() {
-  initializeMapScale();
-}
-
 function recalculateIconPositions() {
   mapScaleManager?.recalculateIconPositions();
 }
 
-// Global exports
+// Global accessors
 Object.assign(window, {
   initializeMapScale,
-  initializeOptimizedMapScale,
+  initializeOptimizedMapScale: initializeMapScale,
   recalculateIconPositions,
-  getCurrentBreakpoint: () => mapScaleManager?.state.current,
+  getCurrentBreakpoint: () => 'dynamic',
   getCalculatedMapStyles: () => mapScaleManager?.state.styles,
   getLastWrapperSize: () => mapScaleManager?.state.lastWrapperSize
 });

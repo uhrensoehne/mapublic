@@ -69,36 +69,50 @@ function saveSavedDataToStorage() {
     }
 }
 
-// NEU: Button-Status basierend auf gespeicherten Daten aktualisieren
+// VERBESSERT: Mobile-freundliche Button-Status-Aktualisierung
 function updateButtonState(btn, slot, slotNumber) {
     if (savedMapData[slot]) {
         const data = savedMapData[slot];
         const textDiv = btn.querySelector('.button-text');
+        const spanElement = btn.querySelector('span');
         const previewContainer = btn.querySelector('.preview-container');
         const previewImage = btn.querySelector('.preview-image');
-        
-        // Button als "hat Daten" markieren
+        const closeIcon = btn.querySelector('.close-icon');
+
         btn.classList.add('has-data');
-        
-        // Text setzen
-        if (textDiv) {
-            textDiv.textContent = data.searchText || 'unbenannt';
-        }
-        
-        // Vorschaubild setzen, falls vorhanden
+
+        const displayText = data.searchText || 'unbenannt';
+        if (textDiv) textDiv.textContent = displayText;
+        if (spanElement) spanElement.textContent = displayText;
+
         if (data.previewImage && previewImage && previewContainer) {
             previewImage.src = data.previewImage;
             previewContainer.style.display = 'block';
         }
-        
+
+        const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+
+        if (closeIcon) {
+            if (isMobile) {
+                closeIcon.style.display = 'flex';
+                closeIcon.style.opacity = '0.8';
+            } else {
+                // Wichtig: damit CSS-Hover greifen kann – NICHT display:none!
+                closeIcon.style.display = '';
+                closeIcon.style.opacity = '';
+            }
+        }
+
         console.log(`Button-Status für Slot ${slotNumber} wiederhergestellt`);
     } else {
         resetButtonState(btn);
     }
 }
 
+
 async function handleLoadDataButton(btn, slot, slotNumber) {
     const textDiv = btn.querySelector('.button-text');
+    const spanElement = btn.querySelector('span');
     const previewContainer = btn.querySelector('.preview-container');
     const previewImage = btn.querySelector('.preview-image');
     
@@ -106,7 +120,9 @@ async function handleLoadDataButton(btn, slot, slotNumber) {
     
     if (!savedMapData[slot]) {
         // Speichern-Modus
-        if (textDiv) textDiv.textContent = 'Speichert...';
+        const savingText = 'Speichert...';
+        if (textDiv) textDiv.textContent = savingText;
+        if (spanElement) spanElement.textContent = savingText;
         btn.classList.add('loading');
         
         try {
@@ -120,7 +136,10 @@ async function handleLoadDataButton(btn, slot, slotNumber) {
             // WICHTIG: Nach dem Speichern in sessionStorage speichern
             saveSavedDataToStorage();
             
-            console.log(`Kartendaten erfolgreich in Slot ${slotNumber} gespeichert - Button zeigt: "${textDiv?.textContent || 'N/A'}"`);
+            // Button-Status nach erfolgreichem Speichern aktualisieren
+            updateButtonState(btn, slot, slotNumber);
+            
+            console.log(`Kartendaten erfolgreich in Slot ${slotNumber} gespeichert`);
             
         } catch (error) {
             console.error(`Fehler beim Speichern der Kartendaten in Slot ${slotNumber}:`, error);
@@ -131,21 +150,27 @@ async function handleLoadDataButton(btn, slot, slotNumber) {
         }
     } else {
         // Laden-Modus
-        const currentText = textDiv?.textContent || '';
-        if (textDiv) textDiv.textContent = 'Lädt...';
+        const currentText = (textDiv?.textContent || spanElement?.textContent) || '';
+        const loadingText = 'Lädt...';
+        if (textDiv) textDiv.textContent = loadingText;
+        if (spanElement) spanElement.textContent = loadingText;
         btn.classList.add('loading');
         
         try {
             loadMapData(slot);
             setTimeout(() => {
                 if (textDiv) textDiv.textContent = currentText;
+                if (spanElement) spanElement.textContent = currentText;
                 btn.classList.remove('loading');
                 btn.disabled = false;
+                // Button-Status nach dem Laden wiederherstellen
+                updateButtonState(btn, slot, slotNumber);
                 console.log(`Kartendaten erfolgreich aus Slot ${slotNumber} geladen`);
             }, 3000);
         } catch (error) {
             console.error(`Fehler beim Laden der Kartendaten aus Slot ${slotNumber}:`, error);
             if (textDiv) textDiv.textContent = currentText;
+            if (spanElement) spanElement.textContent = currentText;
             btn.classList.remove('loading');
             btn.disabled = false;
             alert(`Fehler beim Laden der Kartendaten aus Slot ${slotNumber}: ` + error.message);
@@ -153,11 +178,24 @@ async function handleLoadDataButton(btn, slot, slotNumber) {
     }
 }
 
+// NEU: Mobile-freundliche Löschfunktion
 function handleDeleteData(btn, slot, slotNumber) {
     if (!savedMapData[slot]) return;
     
     const searchText = savedMapData[slot].searchText || 'Unbenannte Karte';
-    if (!confirm(`Gespeicherte Daten "${searchText}" aus Slot ${slotNumber} löschen?`)) return;
+    const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+    
+    let shouldDelete = false;
+    
+    if (isMobile) {
+        // Mobile: Direkt löschen ohne Bestätigung
+        shouldDelete = true;
+    } else {
+        // Desktop: Mit Bestätigung
+        shouldDelete = confirm(`Gespeicherte Daten "${searchText}" aus Slot ${slotNumber} löschen?`);
+    }
+    
+    if (!shouldDelete) return;
     
     savedMapData[slot] = null;
     resetButtonState(btn);
@@ -168,17 +206,58 @@ function handleDeleteData(btn, slot, slotNumber) {
     console.log(`Kartendaten aus Slot ${slotNumber} gelöscht`);
 }
 
+// VERBESSERT: Reset-Funktion für mobile Kompatibilität
 function resetButtonState(btn) {
     const textDiv = btn.querySelector('.button-text');
+    const spanElement = btn.querySelector('span');
     const previewContainer = btn.querySelector('.preview-container');
+    const closeIcon = btn.querySelector('.close-icon');
     
+    // Text zurücksetzen
     if (textDiv) textDiv.textContent = 'speichern';
+    if (spanElement) spanElement.textContent = 'speichern';
+    
+    // Vorschau verstecken
     if (previewContainer) previewContainer.style.display = 'none';
+    
+    // Close-Icon verstecken
+    if (closeIcon) {
+        closeIcon.style.display = 'none';
+        closeIcon.style.opacity = '';
+    }
     
     btn.classList.remove('has-data', 'loading');
     btn.disabled = false;
 }
 
+// NEU: Funktion zur Überwachung von Größenänderungen und Mobile-Anpassung
+function handleMobileButtonStates() {
+    const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+    
+    for (let i = 1; i <= 3; i++) {
+        const btn = document.getElementById(`load-data-btn-${i}`);
+        const slot = `slot${i}`;
+        const closeIcon = btn?.querySelector('.close-icon');
+        
+        if (!btn || !closeIcon) continue;
+        
+        if (savedMapData[slot] && isMobile) {
+            // Auf mobilen Geräten Close-Icon immer anzeigen wenn Daten vorhanden
+            closeIcon.style.display = 'flex';
+            closeIcon.style.opacity = '0.8';
+        } else if (savedMapData[slot] && !isMobile) {
+            // Auf Desktop nur bei Hover anzeigen (via CSS)
+            closeIcon.style.display = '';
+            closeIcon.style.opacity = '';
+        }
+    }
+}
+
+// Event-Listener für Größenänderungen
+window.addEventListener('resize', handleMobileButtonStates);
+window.addEventListener('orientationchange', handleMobileButtonStates);
+
+// Rest der Funktionen bleibt unverändert...
 function saveMapData(slot = 'slot1') {
     const center = map.getCenter();
     const zoom = map.getZoom();

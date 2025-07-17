@@ -48,7 +48,7 @@ class IconAnimationManager {
         const icons = [...container.querySelectorAll('.placed-box')];
         
         if (!icons.length) {
-            if (showMessage) this.showMessage('Keine Icons zum Löschen vorhanden!', 'info');
+            if (showMessage) this.showMessage('Keine Marker zum Löschen vorhanden!', 'info');
             return;
         }
 
@@ -64,7 +64,10 @@ class IconAnimationManager {
         this.updateIconStatus();
         
         if (showMessage) {
-            this.showMessage(`${icons.length} Icons erfolgreich entfernt!`, 'success');
+            const message = icons.length === 1 
+                ? '1 Marker wurde erfolgreich entfernt!' 
+                : `${icons.length} Marker wurden erfolgreich entfernt!`;
+            this.showMessage(message, 'success');
         }
     }
 
@@ -113,13 +116,89 @@ class IconAnimationManager {
     }
 
     attachIconEventListeners(iconElement) {
-        iconElement.addEventListener('mousedown', ev => {
-            if (typeof startBoxDrag === 'function') startBoxDrag(ev, iconElement);
+        // WICHTIG: Variablen für Touch-Handling
+        let touchTimer = null;
+        let isDragging = false;
+        let touchStartPos = { x: 0, y: 0 };
+        const LONG_PRESS_DURATION = 500;
+        const MOVE_THRESHOLD = 10;
+
+        // Desktop: Mouse Events
+        iconElement.addEventListener('mousedown', (e) => {
+            console.log('[IconAnimationManager] Mousedown event');
+            if (typeof startBoxDrag === 'function') {
+                startBoxDrag(e, iconElement);
+            }
         });
 
-        iconElement.addEventListener('contextmenu', ev => {
-            ev.preventDefault();
+        // Desktop: Right-Click zum Löschen
+        iconElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
             this.removeIcon(iconElement);
+        });
+
+        // Mobile: Touch Events mit verbesserter Logik
+        iconElement.addEventListener('touchstart', (e) => {
+            console.log('[IconAnimationManager] Touchstart event');
+            isDragging = false;
+            const touch = e.touches[0];
+            touchStartPos = { x: touch.clientX, y: touch.clientY };
+            
+            // Starte Long-Press Timer
+            touchTimer = setTimeout(() => {
+                // Nur löschen wenn nicht gedraggt wurde
+                if (!isDragging) {
+                    console.log('[IconAnimationManager] Long press detected - removing icon');
+                    this.removeIcon(iconElement);
+                    
+                    // Vibration für Lösch-Feedback
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+                }
+            }, LONG_PRESS_DURATION);
+            
+            // Starte auch den Drag sofort
+            if (typeof startBoxDrag === 'function') {
+                startBoxDrag(e, iconElement);
+            }
+        }, { passive: false });
+
+        // Mobile: Touch Move - Erkenne Bewegung
+        iconElement.addEventListener('touchmove', (e) => {
+            if (!touchTimer) return;
+            
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+            const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+            
+            // Wenn Bewegung erkannt wird, ist es ein Drag
+            if (deltaX > MOVE_THRESHOLD || deltaY > MOVE_THRESHOLD) {
+                console.log('[IconAnimationManager] Movement detected - cancelling long press');
+                isDragging = true;
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+        }, { passive: false });
+
+        // Mobile: Touch End - Cleanup
+        iconElement.addEventListener('touchend', () => {
+            console.log('[IconAnimationManager] Touchend event');
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+            isDragging = false;
+        });
+
+        // Mobile: Touch Cancel - Cleanup
+        iconElement.addEventListener('touchcancel', () => {
+            console.log('[IconAnimationManager] Touchcancel event');
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+            isDragging = false;
         });
     }
 
@@ -215,7 +294,7 @@ class IconAnimationManager {
         document.querySelectorAll('.sidebar-icon').forEach(icon => {
             Object.assign(icon.style, {
                 opacity: isLimitReached ? '0.4' : '1',
-                cursor: isLimitReached ? 'not-allowed' : 'grab'
+                cursor: isLimitReached ? 'not-allowed' : 'pointer'
             });
             
             isLimitReached 
@@ -235,10 +314,10 @@ class IconAnimationManager {
         const isLimitReached = current >= max;
         
         Object.assign(counter, {
-            textContent: `${current}/${max} Icons verwendet`
+            textContent: `${current}/${max} `
         });
         
-        counter.style.color = isLimitReached ? '#ff6b6b' : 'rgba(255,255,255,0.7)';
+        counter.style.color = isLimitReached ? '#ff6b6b' : 'black';
         
         const counterContainer = document.getElementById('icon-counter-container');
         if (counterContainer) {
@@ -270,7 +349,7 @@ class IconAnimationManager {
     }
 
     showIconLimitWarning() {
-        this.showMessage('Maximal 10 Icons erlaubt! Entfernen Sie ein Icon (Rechtsklick), um ein neues hinzuzufügen.', 'warning');
+        this.showMessage('Maximal 10 Icons erlaubt! Entfernen Sie ein Icon, um ein neues hinzuzufügen.', 'warning');
     }
 
     showMessage(message, type = 'info') {
@@ -284,7 +363,7 @@ class IconAnimationManager {
         
         messageDiv.style.cssText = `
             position: fixed; 
-            top: 20px; 
+            top: 10px; 
             left: 50%; 
             transform: translateX(-50%); 
             background: ${bgColor}; 
