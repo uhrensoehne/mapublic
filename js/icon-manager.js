@@ -300,9 +300,11 @@ async function endUnifiedDrag(eventPos) {
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         }
     } else {
+        // Für bereits platzierte Icons
         const isInCircle = isElementInsideCircle(currentDragElement, container);
         
         if (isInCircle) {
+            // Icon bleibt im Kreis - normale Positionierung
             Object.assign(currentDragElement.style, {
                 opacity: '1',
                 transform: 'scale(1)',
@@ -311,17 +313,17 @@ async function endUnifiedDrag(eventPos) {
                 transition: ''
             });
             currentDragElement.classList.remove('dragging');
-        } else {
-            Object.assign(currentDragElement.style, {
-                transition: 'all 0.3s ease-out',
-                opacity: '0',
-                transform: 'scale(0)'
-            });
             
-            setTimeout(async () => {
-                await iconAnimationManager.removeIcon(currentDragElement, true);
-                if (navigator.vibrate) navigator.vibrate([50, 25, 50]);
-            }, 300);
+            console.log('[endUnifiedDrag] Icon bleibt im Kreis');
+        } else {
+            // Icon ist außerhalb des Kreises - komplett löschen
+            console.log('[endUnifiedDrag] Icon außerhalb des Kreises - wird gelöscht');
+            
+            // Sofortige Löschung ohne Animation
+            await iconAnimationManager.removeIcon(currentDragElement, true);
+            iconAnimationManager.showMessage('Marker wurde entfernt!', 'info');
+            
+            if (navigator.vibrate) navigator.vibrate([50, 25, 50]);
         }
     }
     
@@ -543,7 +545,6 @@ function setupDragAndDrop() {
 
     iconAnimationManager.updateIconStatus();
 }
-
 
 // Legacy Functions
 function startBoxDrag(e, box) { startUnifiedDrag(e, box); }
