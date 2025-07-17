@@ -10,14 +10,6 @@
     box-sizing: border-box; 
 }
 
-html, body { 
-    width: 100%; 
-    height: 100%;
-    background: #ffffff; /* Weißer Hintergrund */
-    user-select: none; 
-    overflow: hidden; /* Kein Scrollen mehr */
-    font-family: 'Courier New', serif;
-}
 
 /* App Container */
 #app-container {
