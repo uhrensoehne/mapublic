@@ -2,7 +2,7 @@
 #sidebar {
     width: 440px;
     min-width: 320px;
-    height: calc(100vh);
+    height: calc(100vh - 60px);
     background: linear-gradient(180deg, #faf9f6 0%, #f5f3f0 100%);
     backdrop-filter: blur(20px);
     border-right: 1px solid rgba(0, 0, 0, 0.1);
@@ -38,8 +38,7 @@
     padding: 24px;
 }
 
-.section-title { 
-    font-family: 'Courier New', serif;
+.section-title {
     font-size: 16px;
     font-weight: 600;
     color: #1d1d1f;
