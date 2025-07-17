@@ -8,7 +8,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 40px 40px 40px 0;
+    padding: 40px 40px 0px 0;
     background: rgba(250, 249, 246, 0.9);
     height: calc(100vh);
 }
